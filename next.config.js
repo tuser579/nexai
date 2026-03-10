@@ -1,20 +1,21 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // ── Required for NextAuth v5 on Vercel ────────
-  experimental: {
-    serverComponentsExternalPackages: ['mongoose'],
-  },
+  // ── Turbopack config (Next.js 16 default) ─────
+  turbopack: {},
 
+  // ── Image domains ─────────────────────────────
   images: {
     remotePatterns: [
       { protocol: 'https', hostname: '**' },
     ],
   },
 
-  // ── Suppress specific warnings ────────────────
-  webpack: (config) => {
-    config.externals = [...(config.externals || []), 'mongoose']
-    return config
+  // ── Serverless / Vercel optimizations ─────────
+  serverExternalPackages: ['mongoose', 'bcryptjs'],
+
+  // ── Environment ───────────────────────────────
+  env: {
+    NEXTAUTH_URL: process.env.NEXTAUTH_URL || process.env.AUTH_URL || '',
   },
 }
 
