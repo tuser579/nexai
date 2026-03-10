@@ -1,20 +1,16 @@
-import NextAuth      from 'next-auth'
-import Credentials   from 'next-auth/providers/credentials'
-import Google        from 'next-auth/providers/google'
-import { connectDB } from '@/lib/db'
-import User          from '@/models/User'
+import NextAuth    from 'next-auth'
+import Credentials from 'next-auth/providers/credentials'
+import Google      from 'next-auth/providers/google'
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
-  trustHost: true,          // ← required for Vercel
+  trustHost: true,
 
   providers: [
-    // ── Google OAuth ──────────────────────────
     Google({
       clientId:     process.env.GOOGLE_CLIENT_ID     || '',
       clientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
     }),
 
-    // ── Email / Password ──────────────────────
     Credentials({
       name: 'credentials',
       credentials: {
@@ -25,7 +21,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         if (!credentials?.email || !credentials?.password) return null
 
         try {
+          const { connectDB } = await import('@/lib/db')
+          const { default: User } = await import('@/models/User')
+
           await connectDB()
+
           const user = await User.findOne({
             email: String(credentials.email).toLowerCase().trim(),
           })
@@ -45,7 +45,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             avatar: user.avatar ?? '',
           }
         } catch (err) {
-          console.error('Auth error:', err)
+          console.error('Auth authorize error:', err)
           return null
         }
       },
@@ -59,7 +59,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
   session: {
     strategy: 'jwt',
-    maxAge:   30 * 24 * 60 * 60, // 30 days
+    maxAge:   30 * 24 * 60 * 60,
   },
 
   callbacks: {
@@ -70,16 +70,21 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         token.avatar = user.avatar ?? ''
         token.name   = user.name   ?? ''
       }
-      // Google OAuth — create user in DB if first time
+
       if (account?.provider === 'google' && token.email) {
         try {
+          const { connectDB }     = await import('@/lib/db')
+          const { default: User } = await import('@/models/User')
+
           await connectDB()
+
           let dbUser = await User.findOne({ email: token.email })
           if (!dbUser) {
             dbUser = await User.create({
-              name:     token.name  || 'User',
+              name:     token.name    || 'User',
               email:    token.email,
-              password: Math.random().toString(36).slice(-16),
+              password: Math.random().toString(36).slice(-16) +
+                        Math.random().toString(36).slice(-16),
               provider: 'google',
               avatar:   token.picture ?? '',
               plan:     'free',
@@ -92,6 +97,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           console.error('Google OAuth DB error:', err)
         }
       }
+
       return token
     },
 
@@ -100,11 +106,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         session.user.id     = token.id     ?? ''
         session.user.plan   = token.plan   ?? 'free'
         session.user.avatar = token.avatar ?? ''
-        session.user.name   = token.name   ?? session.user.name
+        session.user.name   = token.name   ?? session.user.name ?? ''
       }
       return session
     },
   },
 
-  secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET,
+  secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET || 'fallback-secret',
 })
