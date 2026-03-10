@@ -1,22 +1,20 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // ── Required for NextAuth v5 on Vercel ────────
+  experimental: {
+    serverComponentsExternalPackages: ['mongoose'],
+  },
+
   images: {
     remotePatterns: [
-      { protocol: 'https', hostname: 'replicate.delivery' },
-      { protocol: 'https', hostname: 'pbxt.replicate.delivery' },
-      { protocol: 'https', hostname: 'lh3.googleusercontent.com' },
-      { protocol: 'https', hostname: 'huggingface.co' },
       { protocol: 'https', hostname: '**' },
     ],
   },
 
-  // ── Add this to fix the error ──────────────
-  turbopack: {},
-
-  experimental: {
-    serverActions: {
-      allowedOrigins: ['localhost:3000'],
-    },
+  // ── Suppress specific warnings ────────────────
+  webpack: (config) => {
+    config.externals = [...(config.externals || []), 'mongoose']
+    return config
   },
 }
 

@@ -5,36 +5,44 @@ import { connectDB } from '@/lib/db'
 import User          from '@/models/User'
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
-  providers: [
+  trustHost: true,          // ← required for Vercel
 
+  providers: [
+    // ── Google OAuth ──────────────────────────
     Google({
-      clientId:     process.env.GOOGLE_CLIENT_ID     ?? '',
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? '',
+      clientId:     process.env.GOOGLE_CLIENT_ID     || '',
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
     }),
 
+    // ── Email / Password ──────────────────────
     Credentials({
       name: 'credentials',
       credentials: {
         email:    { label: 'Email',    type: 'email'    },
         password: { label: 'Password', type: 'password' },
       },
-
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) return null
+
         try {
           await connectDB()
           const user = await User.findOne({
-            email: String(credentials.email).toLowerCase(),
+            email: String(credentials.email).toLowerCase().trim(),
           })
+
           if (!user) return null
-          const isValid = await user.comparePassword(String(credentials.password))
+
+          const isValid = await user.comparePassword(
+            String(credentials.password)
+          )
           if (!isValid) return null
+
           return {
             id:     user._id.toString(),
-            name:   user.name,
             email:  user.email,
-            plan:   user.plan   || 'free',
-            avatar: user.avatar || '',
+            name:   user.name,
+            plan:   user.plan   ?? 'free',
+            avatar: user.avatar ?? '',
           }
         } catch (err) {
           console.error('Auth error:', err)
@@ -44,44 +52,44 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     }),
   ],
 
-  callbacks: {
+  pages: {
+    signIn: '/login',
+    error:  '/login',
+  },
 
-    async signIn({ user, account }) {
-      if (account?.provider === 'google') {
+  session: {
+    strategy: 'jwt',
+    maxAge:   30 * 24 * 60 * 60, // 30 days
+  },
+
+  callbacks: {
+    async jwt({ token, user, account }) {
+      if (user) {
+        token.id     = user.id     ?? ''
+        token.plan   = user.plan   ?? 'free'
+        token.avatar = user.avatar ?? ''
+        token.name   = user.name   ?? ''
+      }
+      // Google OAuth — create user in DB if first time
+      if (account?.provider === 'google' && token.email) {
         try {
           await connectDB()
-          const existing = await User.findOne({ email: user.email })
-          if (!existing) {
-            await User.create({
-              name:     user.name,
-              email:    user.email,
-              avatar:   user.image || '',
-              password: Math.random().toString(36) + Date.now().toString(),
+          let dbUser = await User.findOne({ email: token.email })
+          if (!dbUser) {
+            dbUser = await User.create({
+              name:     token.name  || 'User',
+              email:    token.email,
+              password: Math.random().toString(36).slice(-16),
               provider: 'google',
+              avatar:   token.picture ?? '',
+              plan:     'free',
             })
           }
-          return true
+          token.id     = dbUser._id.toString()
+          token.plan   = dbUser.plan   ?? 'free'
+          token.avatar = dbUser.avatar ?? ''
         } catch (err) {
-          console.error('Google signIn error:', err)
-          return false
-        }
-      }
-      return true
-    },
-
-    async jwt({ token, user }) {
-      if (user) {
-        try {
-          await connectDB()
-          const dbUser = await User.findOne({ email: user.email })
-          if (dbUser) {
-            token.id     = dbUser._id.toString()
-            token.plan   = dbUser.plan   || 'free'
-            token.avatar = dbUser.avatar || ''
-            token.name   = dbUser.name
-          }
-        } catch (err) {
-          console.error('JWT error:', err)
+          console.error('Google OAuth DB error:', err)
         }
       }
       return token
@@ -98,17 +106,5 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     },
   },
 
-  session: {
-    strategy: 'jwt',
-    maxAge:   30 * 24 * 60 * 60,
-  },
-
-  pages: {
-    signIn: '/login',
-    error:  '/login',
-  },
-
-  trustHost: true,
-
-  secret: process.env.AUTH_SECRET,
+  secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET,
 })

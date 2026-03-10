@@ -1,24 +1,40 @@
 import { auth } from '@/auth'
 import { NextResponse } from 'next/server'
 
-export default auth(function middleware(req) {
+export default auth((req) => {
   const { pathname } = req.nextUrl
-  const session      = req.auth
+  const isLoggedIn   = !!req.auth
 
-  // Logged in + visiting auth pages → go to chat
-  if (
-    session &&
-    (pathname === '/' ||
-     pathname === '/login' ||
-     pathname === '/register')
-  ) {
-    return NextResponse.redirect(new URL('/chat', req.url))
+  // ── Public routes — always allow ──────────────
+  const publicPaths = [
+    '/',
+    '/login',
+    '/register',
+    '/api/auth',
+  ]
+
+  const isPublic = publicPaths.some((p) =>
+    pathname === p || pathname.startsWith(p)
+  )
+
+  if (isPublic) return NextResponse.next()
+
+  // ── API routes — return 401 if not logged in ──
+  if (pathname.startsWith('/api/')) {
+    if (!isLoggedIn) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      )
+    }
+    return NextResponse.next()
   }
 
-  // Not logged in + visiting protected pages → go to login
-  const protectedPaths = ['/chat', '/image', '/video', '/analyze', '/settings']
-  if (!session && protectedPaths.some((p) => pathname.startsWith(p))) {
-    return NextResponse.redirect(new URL('/login', req.url))
+  // ── Protected pages — redirect to login ───────
+  if (!isLoggedIn) {
+    const loginUrl = new URL('/login', req.nextUrl.origin)
+    loginUrl.searchParams.set('callbackUrl', pathname)
+    return NextResponse.redirect(loginUrl)
   }
 
   return NextResponse.next()
@@ -26,6 +42,13 @@ export default auth(function middleware(req) {
 
 export const config = {
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|api/auth).*)',
+    /*
+     * Match all paths EXCEPT:
+     * - _next/static
+     * - _next/image
+     * - favicon.ico
+     * - public folder files
+     */
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|css|js)$).*)',
   ],
 }
