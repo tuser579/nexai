@@ -1,19 +1,41 @@
-import { create }        from 'zustand'
-import { persist }       from 'zustand/middleware'
+import { create } from 'zustand'
+import { persist } from 'zustand/middleware'
 import { DEFAULT_MODEL } from '@/constants/models'
 
 // ── Must match ALL model IDs in constants/models.js ──
 const VALID_MODELS = [
   // Gemini
   'gemini-2.0-flash',
+
   // Groq
   'llama-3.3-70b-versatile',
   'llama-3.1-8b-instant',
   'mixtral-8x7b-32768',
   'gemma2-9b-it',
+   
+  // github
+  'gpt-4o',
+  'gpt-4o-mini',
+  'Meta-Llama-3.1-405B-Instruct',
+  'Meta-Llama-3.3-70B-Instruct',
+  'DeepSeek-R1',
+  'Phi-4',
+  'Mistral-Large-2411',
+  'Cohere-command-r-plus-08-2024',
+  
+  // OpenRouter free
+  'meta-llama/llama-3.1-8b-instruct',
+  'meta-llama/llama-3.3-70b-instruct',
+  'google/gemma-2-9b-it',
+  'mistralai/mistral-7b-instruct',
+  'deepseek/deepseek-r1',
+  'deepseek/deepseek-chat',
+  'qwen/qwen-2.5-72b-instruct',
+
   // OpenAI
   'gpt-3.5-turbo',
   'gpt-4o',
+
   // Together
   'mistralai/Mixtral-8x7B-Instruct-v0.1',
 ]
@@ -27,16 +49,16 @@ export const useAppStore = create(
     (set, get) => ({
 
       // ── Theme ─────────────────────────────────
-      theme:       'dark',
+      theme: 'dark',
       toggleTheme: () => set((s) => ({ theme: s.theme === 'dark' ? 'light' : 'dark' })),
-      setTheme:    (theme) => set({ theme }),
+      setTheme: (theme) => set({ theme }),
 
       // ── Active Chat ───────────────────────────
-      activeChatId:    null,
+      activeChatId: null,
       setActiveChatId: (id) => set({ activeChatId: id }),
 
       // ── Messages ──────────────────────────────
-      messages:    [],
+      messages: [],
       setMessages: (messages) => set({ messages }),
 
       addMessage: (msg) =>
@@ -53,18 +75,18 @@ export const useAppStore = create(
       clearMessages: () => set({ messages: [], activeChatId: null }),
 
       // ── AI Model ──────────────────────────────
-      model:    DEFAULT_MODEL,
+      model: DEFAULT_MODEL,
       setModel: (model) => {
         // Always allow setting — don't block with safeModel here
         set({ model })
       },
 
       // ── Streaming State ───────────────────────
-      isStreaming:  false,
+      isStreaming: false,
       setStreaming: (v) => set({ isStreaming: v }),
 
       // ── Chat Sessions ─────────────────────────
-      chatSessions:    [],
+      chatSessions: [],
       setChatSessions: (sessions) => set({ chatSessions: sessions }),
 
       addChatSession: (session) =>
@@ -83,7 +105,7 @@ export const useAppStore = create(
         })),
 
       // ── Image History ─────────────────────────
-      imageHistory:    [],
+      imageHistory: [],
       setImageHistory: (history) => set({ imageHistory: history }),
 
       addImageToHistory: (image) =>
@@ -102,33 +124,33 @@ export const useAppStore = create(
         })),
 
       // ── UI State ──────────────────────────────
-      sidebarOpen:          true,
-      mobileSidebarOpen:    false,
-      setSidebarOpen:       (v)  => set({ sidebarOpen: v }),
-      setMobileSidebarOpen: (v)  => set({ mobileSidebarOpen: v }),
-      toggleSidebar:        ()   => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
+      sidebarOpen: true,
+      mobileSidebarOpen: false,
+      setSidebarOpen: (v) => set({ sidebarOpen: v }),
+      setMobileSidebarOpen: (v) => set({ mobileSidebarOpen: v }),
+      toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
 
       // ── Active Page ───────────────────────────
-      activePage:    'chat',
+      activePage: 'chat',
       setActivePage: (page) => set({ activePage: page }),
 
       // ── Image Generator ───────────────────────
-      imagePrompt:    '',
-      imageStyle:     'photorealistic',
-      imageSize:      '512x512',
+      imagePrompt: '',
+      imageStyle: 'photorealistic',
+      imageSize: '512x512',
       setImagePrompt: (v) => set({ imagePrompt: v }),
-      setImageStyle:  (v) => set({ imageStyle: v }),
-      setImageSize:   (v) => set({ imageSize: v }),
+      setImageStyle: (v) => set({ imageStyle: v }),
+      setImageSize: (v) => set({ imageSize: v }),
 
       // ── Video Generator ───────────────────────
-      videoPrompt:      '',
-      videoStyle:       'cinematic',
-      videoDuration:    '5s',
-      videoQuality:     'standard',
-      setVideoPrompt:   (v) => set({ videoPrompt: v }),
-      setVideoStyle:    (v) => set({ videoStyle: v }),
+      videoPrompt: '',
+      videoStyle: 'cinematic',
+      videoDuration: '5s',
+      videoQuality: 'standard',
+      setVideoPrompt: (v) => set({ videoPrompt: v }),
+      setVideoStyle: (v) => set({ videoStyle: v }),
       setVideoDuration: (v) => set({ videoDuration: v }),
-      setVideoQuality:  (v) => set({ videoQuality: v }),
+      setVideoQuality: (v) => set({ videoQuality: v }),
 
       // ── Notifications ─────────────────────────
       notifications: [],
@@ -144,11 +166,11 @@ export const useAppStore = create(
       // ── Reset ─────────────────────────────────
       resetStore: () =>
         set({
-          activeChatId:      null,
-          messages:          [],
-          chatSessions:      [],
-          imageHistory:      [],
-          isStreaming:       false,
+          activeChatId: null,
+          messages: [],
+          chatSessions: [],
+          imageHistory: [],
+          isStreaming: false,
           mobileSidebarOpen: false,
         }),
     }),
@@ -156,14 +178,14 @@ export const useAppStore = create(
     {
       name: 'nexai-store',
       partialize: (state) => ({
-        theme:         state.theme,
-        model:         state.model, // persist as-is, no filtering
-        sidebarOpen:   state.sidebarOpen,
-        imageStyle:    state.imageStyle,
-        imageSize:     state.imageSize,
-        videoStyle:    state.videoStyle,
+        theme: state.theme,
+        model: state.model, // persist as-is, no filtering
+        sidebarOpen: state.sidebarOpen,
+        imageStyle: state.imageStyle,
+        imageSize: state.imageSize,
+        videoStyle: state.videoStyle,
         videoDuration: state.videoDuration,
-        videoQuality:  state.videoQuality,
+        videoQuality: state.videoQuality,
       }),
     }
   )
